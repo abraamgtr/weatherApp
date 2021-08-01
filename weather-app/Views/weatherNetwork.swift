@@ -66,6 +66,7 @@ class DataModel {
                 switch response.result {
 
                 case .success(_):
+                    //showConnectionAlert = false
                     if let json = try? JSON(data: response.data!) {
                         //print(json)
                         self.getWeatherImage(imageUrl: AppDelegate.weatherImageUrl + "\(json["weather"][0]["icon"].stringValue)@2x.png") { (image) in

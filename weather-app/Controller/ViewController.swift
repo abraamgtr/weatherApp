@@ -47,10 +47,7 @@ class ViewController: UIViewController, CLLocationManagerDelegate {
     private let dataSource = DataModel()
     let connectionHandler = NetworkHandler()
     
-    func loadWeather() {
-       
-        dataSource.requestData()
-    }
+    
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -76,8 +73,20 @@ class ViewController: UIViewController, CLLocationManagerDelegate {
         
     }
     
+    @objc func loadWeatherNotification(_ notification: Notification) {
+       
+        dataSource.requestData()
+    }
+    
+    @objc func loadWeather() {
+       
+        dataSource.requestData()
+    }
+    
     private func setup() {
+        connectionHandler.startConnectionMonitoring()
         NotificationCenter.default.addObserver(self, selector: #selector(internetHandler(_:)), name: .internetConnection, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(loadWeatherNotification(_:)), name: .locationChanged, object: nil)
         self.locationManager.requestWhenInUseAuthorization()
         
         if CLLocationManager.headingAvailable() {
@@ -89,11 +98,16 @@ class ViewController: UIViewController, CLLocationManagerDelegate {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
+        loadWeather()
+        LocationManagerCustom.shared.requestLocationAuthorization()
+        LocationManagerCustom.shared.getUserLocation(queue: DispatchQueue.main) { userLocation in
+            print(userLocation!.coordinate)
+        }
     }
     
     override func viewWillAppear(_ animated: Bool) {
-        loadWeather()
-        connectionHandler.startConnectionMonitoring()
+        
+        
     }
     
     override func viewDidDisappear(_ animated: Bool) {
@@ -132,12 +146,13 @@ class ViewController: UIViewController, CLLocationManagerDelegate {
 }
 extension ViewController : DataModelDelegate{
     func didRecieveData(data: weather) {
+        print("data receieved")
+        //showConnectionAlert = false
         internetAlertController.dismiss(animated: true, completion: nil)
         self.loadSpinner.stopAnimating()
         self.dataView.isHidden = false
         self.shareBtn.isHidden = false
         self.shareDashView.isHidden = false
-        print(data.getweatherDescription())
         self.weatherImage.image = data.getWeatherImage()
         self.placeLbl.text = data.getWeatherPlace()
         self.conditionLbl.text = "\(data.getWeatherTemp())℃ | \(data.getWeatherMainDesc())"
@@ -149,6 +164,7 @@ extension ViewController : DataModelDelegate{
     func didFailWithError(error: Error) {
         print("error:  \(error.localizedDescription)")
         if (error.localizedDescription.contains("appears to be offline")) {
+            //showConnectionAlert = false
             NotificationCenter.default.post(name: .internetConnection, object: nil, userInfo: nil)
         }
     }
@@ -169,6 +185,11 @@ extension ViewController : DataModelDelegate{
 //                }
 //            }
 //        }
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        print("location changed")
+        NotificationCenter.default.post(name: .locationChanged, object: nil, userInfo: nil)
     }
     
     func locationManager(manager: CLLocationManager!, didUpdateHeading newHeading: CLHeading!) {
@@ -208,13 +229,35 @@ class LocationManagerCustom: NSObject, CLLocationManagerDelegate {
     static let shared = LocationManagerCustom()
     private var locationManager: CLLocationManager = CLLocationManager()
     private var requestLocationAuthorizationCallback: ((CLAuthorizationStatus) -> Void)?
+    private let privateQueue = DispatchQueue.init(label: "somePrivateQueue")
+        private var latestLocation: CLLocation!{
+            didSet{
+                privateQueue.resume()
+            }
+        }
+
+        func getUserLocation(queue: DispatchQueue, callback: @escaping (CLLocation?) -> Void) {
+            if latestLocation == nil{
+                privateQueue.suspend() //pause queue. wait until got a location
+            }
+
+            privateQueue.async{ //enqueue work. should run when latestLocation != nil
+
+                queue.async{ //use a defined queue. most likely mainQueue
+
+                  callback(self.latestLocation)
+                  //optionally clear self.latestLocation to ensure next call to this method will wait for new user location. But if you are okay with a cached userLocation, then no need to clear.
+                }
+            }
+
+        }
 
     public func requestLocationAuthorization() {
         self.locationManager.delegate = self
         let currentStatus = CLLocationManager.authorizationStatus()
 
         // Only ask authorization if it was never asked before
-        guard currentStatus == .notDetermined else { return }
+        guard currentStatus == .denied else { return }
 
         // Starting on iOS 13.4.0, to get .authorizedAlways permission, you need to
         // first ask for WhenInUse permission, then ask for Always permission to
@@ -234,5 +277,10 @@ class LocationManagerCustom: NSObject, CLLocationManagerDelegate {
     public func locationManager(_ manager: CLLocationManager,
                                 didChangeAuthorization status: CLAuthorizationStatus) {
         self.requestLocationAuthorizationCallback?(status)
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        print("location changed")
+        NotificationCenter.default.post(name: .locationChanged, object: nil, userInfo: nil)
     }
 }

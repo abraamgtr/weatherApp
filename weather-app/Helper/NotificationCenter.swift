@@ -10,4 +10,5 @@ import Foundation
 
 extension Notification.Name {
     static let internetConnection = Notification.Name("internetConnection")
+    static let locationChanged = Notification.Name("locationChanged")
 }

@@ -22,7 +22,7 @@ class NetworkHandler {
         monitor.pathUpdateHandler = { pathUpdateHandler in
             if pathUpdateHandler.status == .satisfied {
                 print("Internet connection is on.")
-                
+                showConnectionAlert = false
             } else {
                 print("There's no internet connection.")
 //                NotificationCenter.default.post(name: .internetConnection, object: nil, userInfo: nil)

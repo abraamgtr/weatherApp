@@ -116,8 +116,10 @@ extension ForecastVC: UITableViewDelegate, UITableViewDataSource {
         } else {
             bottomDivider.backgroundColor = UIColor.black.withAlphaComponent(0.54)
         }
+        if (section != 0) {
+            headerView.addSubview(topDivider)
+        }
         
-        headerView.addSubview(topDivider)
         headerView.addSubview(bottomDivider)
                 
                 let label = UILabel()
@@ -165,6 +167,7 @@ extension ForecastVC: UITableViewDelegate, UITableViewDataSource {
 extension ForecastVC : ForecastDataModelDelegate{
     func didRecieveData(data: [Dictionary<Date, [forecastWeather]>.Element]) {
         print(data)
+        //showConnectionAlert = false
         internetAlertController.dismiss(animated: true, completion: nil)
         self.loadSpinner.stopAnimating()
         self.forecastTableView.isHidden = false
@@ -175,6 +178,7 @@ extension ForecastVC : ForecastDataModelDelegate{
     func didFailWithError(error: Error) {
         print("error:  \(error.localizedDescription)")
         if (error.localizedDescription.contains("appears to be offline")) {
+            showConnectionAlert = false
             NotificationCenter.default.post(name: .internetConnection, object: nil, userInfo: nil)
         }
     }
